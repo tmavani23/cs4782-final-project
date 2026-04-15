@@ -20,7 +20,7 @@ def load_model(path):
 
 def run_eval(encoder, decoder, loader):
     dataset = loader.dataset
-    img_to_refs = {}
+    img_to_refs= {}
     for img_name, encoded in dataset.samples:
         clean_caption = []
         for w in encoded:

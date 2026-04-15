@@ -9,8 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as T
 
 from config import (
-    IMAGE_DIR, CAPTIONS_FILE, IMAGE_SIZE,
-    MAX_CAPTION_LENGTH,
+    IMAGE_DIR, CAPTIONS_FILE,
     PAD_TOKEN, START_TOKEN, END_TOKEN, UNK_TOKEN,
     PAD_IDX, START_IDX, END_IDX, UNK_IDX,
     BATCH_SIZE,
@@ -38,7 +37,7 @@ class Vocabulary:
     def encode(self, caption):
         tokens = caption.lower().strip().split()
         indices = [self.word2idx.get(t, UNK_IDX) for t in tokens]
-        return [START_IDX] + indices + [END_IDX]
+        return ([START_IDX] + indices + [END_IDX])
 
     def decode(self, indices):
         words = []

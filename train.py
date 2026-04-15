@@ -26,7 +26,7 @@ def pack(tensor, lengths):
 def train_epoch(encoder, decoder, loader, criterion, optimizer):
     encoder.eval()  
     decoder.train()
-    total_loss  = 0.0
+    total_loss = 0.0
     total_words = 0
 
     for images, captions, lengths, names in loader:
@@ -40,23 +40,23 @@ def train_epoch(encoder, decoder, loader, criterion, optimizer):
         
         loss = criterion(pack(predictions, decode_lengths), pack(targets, decode_lengths))
 
-        loss += ALPHA_C * ((1.0 - alphas.sum(dim=1)) ** 2).mean()
+        loss+= ALPHA_C * ((1.0 - alphas.sum(dim=1)) ** 2).mean()
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
         n = pack(targets, decode_lengths).size(0)
-        total_loss  += loss.item() * n
+        total_loss+= loss.item() * n
         total_words += n
 
-    return total_loss / total_words
+    return total_loss/ total_words
 
 
 def evaluate_bleu(encoder, decoder, loader):
     encoder.eval()
     decoder.eval()
-    dataset  = loader.dataset
+    dataset = loader.dataset
 
     img_to_refs = {}
     for img_name, encoded in dataset.samples:
