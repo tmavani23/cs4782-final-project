@@ -2,6 +2,7 @@ import os
 import torch
 
 # paths
+CHECKPOINT_DIR   = "checkpoints"
 IMAGE_DIR      = os.path.join("data", "Images")
 CAPTIONS_FILE  = os.path.join("data", "captions.txt")
 
