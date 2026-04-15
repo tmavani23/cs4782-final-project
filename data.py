@@ -180,3 +180,18 @@ def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
         pin_memory=True,
     )
     return train_loader, val_loader, test_loader, vocab
+
+
+def test():
+    print("Checking data file")
+    train_loader, val_loader, test_loader, vocab = get_loaders()
+    print("Vocab size:", len(vocab))
+    images, captions, lengths, img_names = next(iter(train_loader))
+    print("Images shape:", images.shape)
+    print("Captions shape:", captions.shape)
+    print("Some caption lengths:", lengths[:5])
+    print("One example image name:", img_names[0])
+    print("One decoded caption:", vocab.decode(captions[0].tolist()))
+
+if __name__ == "__main__":
+    test()

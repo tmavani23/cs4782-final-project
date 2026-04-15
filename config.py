@@ -2,8 +2,8 @@ import os
 import torch
 
 # paths
-IMAGE_DIR      = os.path.join(data, "Images")
-CAPTIONS_FILE  = os.path.join(data, "captions.txt")
+IMAGE_DIR      = os.path.join("data", "Images")
+CAPTIONS_FILE  = os.path.join("data", "captions.txt")
 
 # preprocessing
 IMAGE_SIZE         = 224
