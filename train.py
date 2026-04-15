@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils import clip_grad_norm_
 from torch.optim import Adam
+from torch.optim import RMSprop
 from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
 
 from config import (
@@ -109,7 +110,7 @@ def main():
     encoder = EncoderCNN().to(DEVICE)
     decoder = DecoderLSTM(len(vocab)).to(DEVICE)
 
-    optimizer = Adam(decoder.parameters(), lr=LR)
+    optimizer = RMSprop(decoder.parameters(), lr=LR)
     criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX).to(DEVICE)
 
     best_bleu4 = 0.0

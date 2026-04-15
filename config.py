@@ -2,19 +2,12 @@ import os
 import torch
 
 # paths
-DATA_DIR       = "data"
-IMAGE_DIR      = os.path.join(DATA_DIR, "Images")
-CAPTIONS_FILE  = os.path.join(DATA_DIR, "captions.txt")
-CHECKPOINT_DIR = "checkpoints"
+IMAGE_DIR      = os.path.join(data, "Images")
+CAPTIONS_FILE  = os.path.join(data, "captions.txt")
 
 # preprocessing
 IMAGE_SIZE         = 224
 MAX_CAPTION_LENGTH = 52
-MIN_WORD_FREQ      = 5
-
-# train/val/test split fractions
-TRAIN_FRAC = 0.75
-VAL_FRAC   = 0.125
 
 # special tokens
 PAD_TOKEN   = "<pad>"
