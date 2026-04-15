@@ -15,7 +15,7 @@ from config import (
     BATCH_SIZE,
 )
 
-
+# vocab class
 class Vocabulary:
     def __init__(self):
         self.word2idx = {PAD_TOKEN: PAD_IDX, START_TOKEN: START_IDX,
