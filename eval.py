@@ -8,7 +8,7 @@ from data import get_loaders
 from model import EncoderCNN, DecoderLSTM
 
 def load_model(path):
-    ckpt = torch.load(path, map_location=DEVICE)
+    ckpt = torch.load(path, map_location=DEVICE, weights_only=False)
     vocab = ckpt["vocab"]
     encoder = EncoderCNN().to(DEVICE)
     decoder = DecoderLSTM(len(vocab)).to(DEVICE)

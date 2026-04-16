@@ -14,7 +14,7 @@ from model import EncoderCNN, DecoderLSTM
 
 
 def load_model(checkpoint_path):
-    ckpt    = torch.load(checkpoint_path, map_location=DEVICE)
+    ckpt    = torch.load(checkpoint_path, map_location=DEVICE, weights_only=False)
     vocab   = ckpt["vocab"]
     encoder = EncoderCNN().to(DEVICE)
     decoder = DecoderLSTM(len(vocab)).to(DEVICE)

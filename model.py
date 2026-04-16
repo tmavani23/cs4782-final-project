@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torchvision.models as models
 
+from data import get_loaders
+
 from config import (
     ENCODER_DIM, ATTENTION_DIM, EMBED_DIM, DECODER_DIM, DROPOUT,
     MAX_CAPTION_LENGTH, PAD_IDX, START_IDX, END_IDX,
