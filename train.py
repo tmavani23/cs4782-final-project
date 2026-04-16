@@ -9,13 +9,13 @@ from nltk.translate.bleu_score import corpus_bleu
 
 from config import (
     CHECKPOINT_DIR, DEVICE,
-    EPOCHS, LR, ALPHA_C,
+    EPOCHS, LR, ALPHA_C, PATIENCE,
     PAD_IDX, START_IDX, END_IDX,
 )
 from data import get_loaders
 from model import EncoderCNN, DecoderLSTM
 
-# line up tokens and golden tokens correctly
+
 def pack(tensor, lengths):
     result = []
     for i in range(len(lengths)):
@@ -23,35 +23,53 @@ def pack(tensor, lengths):
         result.append(tensor[i, :l])
     return torch.cat(result, dim=0)
 
-def train_epoch(encoder, decoder, loader, criterion, optimizer):
-    encoder.eval()  
+
+def train_epoch(encoder, decoder, loader, criterion, optimizer, epoch_num):
+    encoder.eval()
     decoder.train()
+
     total_loss = 0.0
     total_words = 0
+    num_batches = len(loader)
+    start_time = time.time()
 
-    for images, captions, lengths, names in loader:
+    for batch_idx, (images, captions, lengths, names) in enumerate(loader, start=1):
         images = images.to(DEVICE)
         captions = captions.to(DEVICE)
         lengths = lengths.to(DEVICE)
 
-        # runs CNN and gives (B, 196, 512) annotation vectors which is what the DecoderLSTM wants as input
-        encoder_output = encoder(images)
-        predictions, caps_sorted, decode_lengths, alphas, sort_idx = decoder(encoder_output, captions, lengths)
-        targets = caps_sorted[:, 1:]
-        
-        loss = criterion(pack(predictions, decode_lengths), pack(targets, decode_lengths))
+        with torch.no_grad():
+            encoder_output = encoder(images)
 
-        loss+= ALPHA_C * ((1.0 - alphas.sum(dim=1)) ** 2).mean()
+        predictions, caps_sorted, decode_lengths, alphas, sort_idx = decoder(
+            encoder_output, captions, lengths
+        )
+        targets = caps_sorted[:, 1:]
+
+        packed_predictions = pack(predictions, decode_lengths)
+        packed_targets = pack(targets, decode_lengths)
+
+        loss = criterion(packed_predictions, packed_targets)
+        loss += ALPHA_C * ((1.0 - alphas.sum(dim=1)) ** 2).mean()
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        n = pack(targets, decode_lengths).size(0)
-        total_loss+= loss.item() * n
-        total_words += n
+        n_words = packed_targets.size(0)
+        total_loss += loss.item() * n_words
+        total_words += n_words
 
-    return total_loss/ total_words
+        if batch_idx % 100 == 0 or batch_idx == 1 or batch_idx == num_batches:
+            elapsed = time.time() - start_time
+            avg_loss = total_loss / total_words
+            print(
+                f"[Epoch {epoch_num}] Batch {batch_idx}/{num_batches} "
+                f"| batch_loss={loss.item():.4f} | avg_loss={avg_loss:.4f} "
+                f"| elapsed={elapsed:.1f}s"
+            )
+
+    return total_loss / total_words
 
 
 def evaluate_bleu(encoder, decoder, loader):
@@ -73,8 +91,11 @@ def evaluate_bleu(encoder, decoder, loader):
     hypotheses = []
     seen = set()
 
+    num_batches = len(loader)
+    start_time = time.time()
+
     with torch.no_grad():
-        for images, _, _, img_names in loader:
+        for batch_idx, (images, _, _, img_names) in enumerate(loader, start=1):
             images = images.to(DEVICE)
             encoder_out = encoder(images)
 
@@ -82,15 +103,26 @@ def evaluate_bleu(encoder, decoder, loader):
                 img_name = img_names[i]
                 if img_name in seen:
                     continue
+
                 seen.add(img_name)
                 output, _ = decoder.generate(encoder_out[i].unsqueeze(0))
+
                 clean_pred = []
                 for w in output:
                     if w not in (START_IDX, END_IDX, PAD_IDX):
                         clean_pred.append(w)
+
                 refs = img_to_refs[img_name]
                 hypotheses.append(clean_pred)
                 references.append(refs)
+
+            if batch_idx % 20 == 0 or batch_idx == 1 or batch_idx == num_batches:
+                elapsed = time.time() - start_time
+                print(
+                    f"[Validation] Batch {batch_idx}/{num_batches} "
+                    f"| images_done={len(seen)} | elapsed={elapsed:.1f}s"
+                )
+
     bleu1 = corpus_bleu(references, hypotheses, weights=(1, 0, 0, 0))
     bleu2 = corpus_bleu(references, hypotheses, weights=(0.5, 0.5, 0, 0))
     bleu3 = corpus_bleu(references, hypotheses, weights=(1/3, 1/3, 1/3, 0))
@@ -103,52 +135,75 @@ def main():
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
     train_loader, val_loader, _, vocab = get_loaders()
 
+    print(f"Loaded data. Train batches: {len(train_loader)}, Val batches: {len(val_loader)}")
+    print(f"Vocabulary size: {len(vocab)}")
+    print(f"Using device: {DEVICE}")
+
     encoder = EncoderCNN().to(DEVICE)
     decoder = DecoderLSTM(len(vocab)).to(DEVICE)
 
     optimizer = RMSprop(decoder.parameters(), lr=LR)
     criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX).to(DEVICE)
 
-    best_bleu4 = 0
+    best_bleu4 = 0.0
     epochs_no_improve = 0
     history = []
 
+    total_start = time.time()
+
     for epoch in range(EPOCHS):
-        loss = train_epoch(encoder, decoder, train_loader, criterion, optimizer)
+        epoch_num = epoch + 1
+        print(f"\n========== Epoch {epoch_num}/{EPOCHS} ==========")
+
+        epoch_start = time.time()
+        train_loss = train_epoch(encoder, decoder, train_loader, criterion, optimizer, epoch_num)
+
+        print(f"[Epoch {epoch_num}] Training done. Starting validation...")
         bleu1, bleu2, bleu3, bleu4 = evaluate_bleu(encoder, decoder, val_loader)
 
-        print("Epoch:", epoch + 1)
-        print("Loss:", loss)
-        print("BLEU-1:", bleu1)
-        print("BLEU-2:", bleu2)
-        print("BLEU-3:", bleu3)
-        print("BLEU-4:", bleu4)
+        epoch_time = time.time() - epoch_start
+
+        print(f"[Epoch {epoch_num}] Done in {epoch_time:.1f}s")
+        print(f"Loss:   {train_loss:.4f}")
+        print(f"BLEU-1: {bleu1:.4f}")
+        print(f"BLEU-2: {bleu2:.4f}")
+        print(f"BLEU-3: {bleu3:.4f}")
+        print(f"BLEU-4: {bleu4:.4f}")
 
         history.append({
-            "epoch": epoch + 1,
-            "loss": loss,
+            "epoch": epoch_num,
+            "loss": train_loss,
             "bleu1": bleu1,
             "bleu2": bleu2,
             "bleu3": bleu3,
-            "bleu4": bleu4
+            "bleu4": bleu4,
+            "epoch_time_sec": epoch_time,
         })
 
         if bleu4 > best_bleu4:
             best_bleu4 = bleu4
             epochs_no_improve = 0
+            save_path = os.path.join(CHECKPOINT_DIR, "best_model.pth")
             torch.save({
                 "encoder": encoder.state_dict(),
                 "decoder": decoder.state_dict(),
-                "vocab": vocab
-            }, os.path.join(CHECKPOINT_DIR, "best_model.pth"))
+                "vocab": vocab,
+            }, save_path)
+            print(f"[Epoch {epoch_num}] New best model saved to {save_path}")
         else:
             epochs_no_improve += 1
-        if epochs_no_improve >= 3:
-            print("Stopping early")
+            print(f"[Epoch {epoch_num}] No improvement. Patience: {epochs_no_improve}/{PATIENCE}")
+
+        if epochs_no_improve >= PATIENCE:
+            print("Stopping early.")
             break
 
-    with open(os.path.join(CHECKPOINT_DIR, "history.json"), "w") as f:
-        json.dump(history, f)
+    history_path = os.path.join(CHECKPOINT_DIR, "history.json")
+    with open(history_path, "w") as f:
+        json.dump(history, f, indent=2)
+    print(f"\nSaved training history to {history_path}")
+    print(f"Total runtime: {time.time() - total_start:.1f}s")
+
 
 if __name__ == "__main__":
     main()
