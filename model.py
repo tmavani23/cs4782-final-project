@@ -33,18 +33,18 @@ class Attention(nn.Module):
     # only soft attention
     def __init__(self):
         super().__init__()
-        self.W_a = nn.Linear(ENCODER_DIM,   ATTENTION_DIM, bias=False)
-        self.U_a = nn.Linear(DECODER_DIM,   ATTENTION_DIM, bias=False)
-        self.w   = nn.Linear(ATTENTION_DIM, 1,             bias=False)
+        self.W_a = nn.Linear(ENCODER_DIM, ATTENTION_DIM, bias=False)
+        self.U_a = nn.Linear(DECODER_DIM, ATTENTION_DIM, bias=False)
+        self.w = nn.Linear(ATTENTION_DIM, 1, bias=False)
 
         self.f_beta = nn.Linear(DECODER_DIM, 1)
 
     def forward(self, encoder_out, h):
         # encoder_out: (B, L, encoder_dim)
-        # h:           (B, decoder_dim)
+        # h: (B, decoder_dim)
         att = self.W_a(encoder_out) + self.U_a(h).unsqueeze(1)  
         energy = self.w(torch.tanh(att)).squeeze(2)              
-        alpha  = torch.softmax(energy, dim=1)                   
+        alpha = torch.softmax(energy, dim=1)                   
         context = (encoder_out * alpha.unsqueeze(2)).sum(1)   
         
         beta = torch.sigmoid(self.f_beta(h))   
@@ -59,9 +59,9 @@ class DecoderLSTM(nn.Module):
 
         self.embedding = nn.Embedding(vocab_size, EMBED_DIM, padding_idx=PAD_IDX)
         self.attention = Attention()
-        self.lstm      = nn.LSTMCell(EMBED_DIM + ENCODER_DIM, DECODER_DIM)
-        self.fc        = nn.Linear(DECODER_DIM, vocab_size)
-        self.dropout   = nn.Dropout(DROPOUT)
+        self.lstm = nn.LSTMCell(EMBED_DIM + ENCODER_DIM, DECODER_DIM)
+        self.fc = nn.Linear(DECODER_DIM, vocab_size)
+        self.dropout = nn.Dropout(DROPOUT)
 
         self.init_h = nn.Linear(ENCODER_DIM, DECODER_DIM)
         self.init_c = nn.Linear(ENCODER_DIM, DECODER_DIM)
@@ -76,7 +76,7 @@ class DecoderLSTM(nn.Module):
     def forward(self, encoder_out, captions, lengths):
         lengths, sort_idx = lengths.sort(descending=True)
         encoder_out = encoder_out[sort_idx]
-        captions    = captions[sort_idx]
+        captions = captions[sort_idx]
 
         embeddings = self.embedding(captions)  # embed captions
         h, c = self.init_hidden(encoder_out)
@@ -88,20 +88,20 @@ class DecoderLSTM(nn.Module):
         B = encoder_out.size(0)
         L = encoder_out.size(1)
         predictions = torch.zeros(B, max_t, self.vocab_size).to(encoder_out.device)
-        alphas      = torch.zeros(B, max_t, L).to(encoder_out.device)
+        alphas = torch.zeros(B, max_t, L).to(encoder_out.device)
 
         for t in range(max_t):
             # only process samples that still have tokens at step t
             Bt = sum(dl > t for dl in decode_lengths)
 
             context, alpha = self.attention(encoder_out[:Bt], h[:Bt]) # calc attention given curr hidden state
-            h_new, c_new   = self.lstm(
+            h_new, c_new = self.lstm(
                 torch.cat([embeddings[:Bt, t], context], dim=1), 
                 (h[:Bt], c[:Bt])
             )
 
             predictions[:Bt, t] = self.fc(self.dropout(h_new))
-            alphas[:Bt, t]      = alpha
+            alphas[:Bt, t] = alpha
 
             h = h.clone()
             c = c.clone() 
@@ -114,17 +114,17 @@ class DecoderLSTM(nn.Module):
     def generate(self, encoder_out, max_len=MAX_CAPTION_LENGTH):
         # decoding for a single image
         device = encoder_out.device
-        h, c   = self.init_hidden(encoder_out)
+        h, c = self.init_hidden(encoder_out)
 
-        word    = torch.tensor([START_IDX], device=device)
+        word = torch.tensor([START_IDX], device=device)
         caption = [START_IDX]
-        alphas  = []
+        alphas = []
 
         for _ in range(max_len):
-            emb              = self.embedding(word)           
-            context, alpha   = self.attention(encoder_out, h)
-            h, c             = self.lstm(torch.cat([emb, context], dim=1), (h, c))
-            word             = self.fc(h).argmax(1)          
+            emb = self.embedding(word)           
+            context, alpha = self.attention(encoder_out, h)
+            h, c = self.lstm(torch.cat([emb, context], dim=1), (h, c))
+            word = self.fc(h).argmax(1)          
 
             caption.append(word.item())
             alphas.append(alpha.squeeze(0).cpu())
