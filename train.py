@@ -15,7 +15,7 @@ from config import (
 from data import get_loaders
 from model import EncoderCNN, DecoderLSTM
 
-
+# line up tokens and golden tokens correctly
 def pack(tensor, lengths):
     result = []
     for i in range(len(lengths)):
@@ -34,6 +34,7 @@ def train_epoch(encoder, decoder, loader, criterion, optimizer):
         captions = captions.to(DEVICE)
         lengths = lengths.to(DEVICE)
 
+        # runs CNN and gives (B, 196, 512) annotation vectors which is what the DecoderLSTM wants as input
         encoder_output = encoder(images)
         predictions, caps_sorted, decode_lengths, alphas, sort_idx = decoder(encoder_output, captions, lengths)
         targets = caps_sorted[:, 1:]
