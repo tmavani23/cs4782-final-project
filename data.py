@@ -151,6 +151,10 @@ def get_transforms():
 def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
     img_to_caps = load_captions(captions_file)
     train_imgs, val_imgs, test_imgs = split_data(list(img_to_caps.keys()))
+    train_imgs = train_imgs[:640]
+    val_imgs = val_imgs[:160]
+    test_imgs = test_imgs[:160]
+    
     train_caps = []
     for img in train_imgs:
         for cap in img_to_caps[img]:
@@ -168,7 +172,7 @@ def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
         batch_size=BATCH_SIZE,
         shuffle=True,
         collate_fn=collate_fn,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True,
     )
 
@@ -177,7 +181,7 @@ def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
         batch_size=BATCH_SIZE,
         shuffle=False,
         collate_fn=collate_fn,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True,
     )
 
@@ -186,7 +190,7 @@ def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
         batch_size=BATCH_SIZE,
         shuffle=False,
         collate_fn=collate_fn,
-        num_workers=4,
+        num_workers=0,
         pin_memory=True,
     )
     return train_loader, val_loader, test_loader, vocab
