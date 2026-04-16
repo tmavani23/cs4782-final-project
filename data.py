@@ -22,10 +22,11 @@ class Vocabulary:
                          END_TOKEN: END_IDX, UNK_TOKEN: UNK_IDX}
         self.idx2word = {v: k for k, v in self.word2idx.items()}
 
+    # counts all words from training captions and keeps 3000 most commmon ones and adds them to vocab
     def build(self, captions):
         freq = Counter()
         for cap in captions:
-            freq.update(cap.lower().strip().split())
+            freq.update(tokenize(cap))
         vocab = freq.most_common(3000)
 
         for word, i in vocab:
@@ -33,12 +34,14 @@ class Vocabulary:
                 idx = len(self.word2idx)
                 self.word2idx[word] = idx
                 self.idx2word[idx] = word
-
+    
+    # turns a caption into token IDs and wraps it in start and end tokens
     def encode(self, caption):
-        tokens = caption.lower().strip().split()
+        tokens = tokenize(caption)
         indices = [self.word2idx.get(t, UNK_IDX) for t in tokens]
         return ([START_IDX] + indices + [END_IDX])
 
+    # turns IDs back into readable sentences
     def decode(self, indices):
         words = []
         for i in indices:
@@ -51,7 +54,13 @@ class Vocabulary:
     def __len__(self):
         return len(self.word2idx)
 
+def tokenize(text):
+    text = text.lower().strip()
+    text = re.sub(r"[^a-z0-9\s]", "", text)   # remove punctuation
+    tokens = text.split()
+    return tokens
 
+# reads csv and makes a dict mapping each image filename to its list of captions
 def load_captions(path=CAPTIONS_FILE):
     df = pd.read_csv(path)
     img_to_caps = {}
@@ -63,7 +72,7 @@ def load_captions(path=CAPTIONS_FILE):
         img_to_caps[img].append(cap)
     return img_to_caps
 
-
+# shuffles image names with a fixed seed and seperates image names into 6000 train, 1000 val, 1000 test
 def split_data(image_names):
     names = sorted(image_names)
     np.random.seed(50)
@@ -77,8 +86,10 @@ def split_data(image_names):
 class Flickr8kDataset(Dataset):
     def __init__(self, image_names, img_to_caps, vocab, image_dir=IMAGE_DIR, transform=None):
         self.image_dir = image_dir
+        self.vocab = vocab
         self.transform = transform
 
+        # each sample is one (image, encoded caption) so if an image has 5 captions then it is in the datatset 5 times
         self.samples = [
             (img, vocab.encode(cap))
             for img in image_names
@@ -115,7 +126,7 @@ def collate_fn(batch):
         img_names.append(img_name)
     images = torch.stack(images)
     max_len = max(lengths)
-    padded = torch.zeros(len(captions), max_len, dtype=torch.long)
+    padded = torch.full((len(captions), max_len), PAD_IDX, dtype=torch.long)
     for i, cap in enumerate(captions):
         padded[i, :len(cap)] = cap
 
@@ -136,7 +147,7 @@ def get_transforms():
 
     return values
 
-
+# loads captions, splits images, builds vocab from only training captions
 def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
     img_to_caps = load_captions(captions_file)
     train_imgs, val_imgs, test_imgs = split_data(list(img_to_caps.keys()))
