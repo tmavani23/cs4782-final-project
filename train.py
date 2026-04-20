@@ -25,7 +25,7 @@ def pack(tensor, lengths):
 
 
 def train_epoch(encoder, decoder, loader, criterion, optimizer, epoch_num):
-    encoder.eval()
+    encoder.train()
     decoder.train()
 
     total_loss = 0.0
@@ -38,8 +38,7 @@ def train_epoch(encoder, decoder, loader, criterion, optimizer, epoch_num):
         captions = captions.to(DEVICE)
         lengths = lengths.to(DEVICE)
 
-        with torch.no_grad():
-            encoder_output = encoder(images)
+        encoder_output = encoder(images)
 
         predictions, caps_sorted, decode_lengths, alphas, sort_idx = decoder(
             encoder_output, captions, lengths
@@ -142,7 +141,7 @@ def main():
     encoder = EncoderCNN().to(DEVICE)
     decoder = DecoderLSTM(len(vocab)).to(DEVICE)
 
-    optimizer = RMSprop(decoder.parameters(), lr=LR)
+    optimizer = RMSprop([{"params": encoder.parameters(), "lr": 1e-5}, {"params": decoder.parameters(), "lr": 5e-5}])
     criterion = nn.CrossEntropyLoss(ignore_index=PAD_IDX).to(DEVICE)
 
     best_bleu4 = 0.0

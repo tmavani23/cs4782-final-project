@@ -132,12 +132,11 @@ def collate_fn(batch):
 
     return images, padded, torch.tensor(lengths), img_names
 
-
 def get_transforms():
-    # normalize values from imagenet 
     values = T.Compose([
         T.Resize(256),
-        T.CenterCrop(224),
+        T.RandomCrop(224),
+        T.RandomHorizontalFlip(),
         T.ToTensor(),
         T.Normalize(
             [0.485, 0.456, 0.406],

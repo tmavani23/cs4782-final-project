@@ -29,10 +29,10 @@ DROPOUT = 0.5
 
 # training
 BATCH_SIZE = 32
-EPOCHS = 20
-LR = 4e-4
+EPOCHS = 30
+LR = 5e-5
 GRAD_CLIP = 5.0
 ALPHA_C = 1.0   # doubly stochastic attention regularizer weight
-PATIENCE = 5    # early stopping patience
+PATIENCE = 20    # early stopping patience
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
