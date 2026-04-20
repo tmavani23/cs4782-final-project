@@ -27,7 +27,7 @@ class Vocabulary:
         freq = Counter()
         for cap in captions:
             freq.update(tokenize(cap))
-        vocab = freq.most_common(3000)
+        vocab = freq.most_common(10000)
 
         for word, i in vocab:
             if word not in self.word2idx:
