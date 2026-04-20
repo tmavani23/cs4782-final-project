@@ -25,7 +25,7 @@ def pack(tensor, lengths):
 
 
 def train_epoch(encoder, decoder, loader, criterion, optimizer, epoch_num):
-    encoder.train()
+    encoder.eval()
     decoder.train()
 
     total_loss = 0.0
@@ -37,8 +37,9 @@ def train_epoch(encoder, decoder, loader, criterion, optimizer, epoch_num):
         images = images.to(DEVICE)
         captions = captions.to(DEVICE)
         lengths = lengths.to(DEVICE)
-
-        encoder_output = encoder(images)
+        
+        with torch.no_grad():
+            encoder_output = encoder(images)
 
         predictions, caps_sorted, decode_lengths, alphas, sort_idx = decoder(
             encoder_output, captions, lengths

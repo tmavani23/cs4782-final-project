@@ -20,7 +20,7 @@ class EncoderCNN(nn.Module):
         self.features = nn.Sequential(*list(vgg.features.children())[:30])
         self.pool = nn.AdaptiveAvgPool2d((14, 14))
         for p in self.features.parameters():
-            p.requires_grad = True
+            p.requires_grad = False
 
     def forward(self, images):
         x = self.features(images)   # (B, 512, h, w)
