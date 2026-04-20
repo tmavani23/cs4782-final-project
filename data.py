@@ -144,15 +144,22 @@ def get_transforms():
         ),
     ])
 
-    return values
+    eval = T.Compose([
+        T.Resize(256),
+        T.CenterCrop(224),
+        T.ToTensor(),
+        T.Normalize(
+            [0.485, 0.456, 0.406],
+            [0.229, 0.224, 0.225]
+        ),
+    ])
+
+    return values, eval
 
 # loads captions, splits images, builds vocab from only training captions
 def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
     img_to_caps = load_captions(captions_file)
     train_imgs, val_imgs, test_imgs = split_data(list(img_to_caps.keys()))
-    train_imgs = train_imgs[:640]
-    val_imgs = val_imgs[:160]
-    test_imgs = test_imgs[:160]
     
     train_caps = []
     for img in train_imgs:
@@ -160,11 +167,11 @@ def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
             train_caps.append(cap)
     vocab = Vocabulary()
     vocab.build(train_caps)
-    transform = get_transforms()
+    transform, eval = get_transforms()
 
     train_ds = Flickr8kDataset(train_imgs, img_to_caps, vocab, image_dir, transform)
-    val_ds = Flickr8kDataset(val_imgs, img_to_caps, vocab, image_dir, transform)
-    test_ds = Flickr8kDataset(test_imgs, img_to_caps, vocab, image_dir, transform)
+    val_ds = Flickr8kDataset(val_imgs, img_to_caps, vocab, image_dir, eval)
+    test_ds = Flickr8kDataset(test_imgs, img_to_caps, vocab, image_dir, eval)
 
     train_loader = DataLoader(
         train_ds,
