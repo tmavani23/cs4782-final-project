@@ -29,7 +29,7 @@ DROPOUT = 0.5
 
 # training
 BATCH_SIZE = 32
-EPOCHS = 1
+EPOCHS = 20
 LR = 4e-4
 GRAD_CLIP = 5.0
 ALPHA_C = 1.0   # doubly stochastic attention regularizer weight

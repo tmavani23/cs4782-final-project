@@ -111,7 +111,7 @@ class DecoderLSTM(nn.Module):
         return predictions, captions, decode_lengths, alphas, sort_idx
 
     @torch.no_grad()
-    def generate(self, encoder_out, max_len=MAX_CAPTION_LENGTH, beam_size=5):
+    def generate(self, encoder_out, max_len=MAX_CAPTION_LENGTH, best=5):
         device = encoder_out.device
 
         h, c = self.init_hidden(encoder_out)
@@ -134,9 +134,9 @@ class DecoderLSTM(nn.Module):
                 h_new, c_new = self.lstm(torch.cat([emb, context], dim=1), (h, c))
 
                 log_probs = torch.log_softmax(self.fc(h_new), dim=1)
-                top_scores, top_words = log_probs.topk(beam_size, dim=1)
+                top_scores, top_words = log_probs.topk(best, dim=1)
 
-                for i in range(beam_size):
+                for i in range(best):
                     next_word = top_words[0, i].item()
                     next_score = score + top_scores[0, i].item()
 
@@ -146,7 +146,7 @@ class DecoderLSTM(nn.Module):
                     captions.append((new_caption, next_score, h_new, c_new, new_alphas))
 
             captions.sort(key=lambda x: x[1], reverse=True)
-            sequences = captions[:beam_size]
+            sequences = captions[:best]
 
             if all(seq[0][-1] == END_IDX for seq in sequences):
                 break
