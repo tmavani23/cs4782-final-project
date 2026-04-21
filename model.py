@@ -18,7 +18,6 @@ class EncoderCNN(nn.Module):
         vgg = models.vgg16(weights=models.VGG16_Weights.IMAGENET1K_V1)
         # features[:30] keeps everything up to (not including) pool5
         self.features = nn.Sequential(*list(vgg.features.children())[:30])
-        self.pool = nn.AdaptiveAvgPool2d((14, 14))
         for p in self.features.parameters():
             p.requires_grad = False
 

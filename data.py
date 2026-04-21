@@ -133,7 +133,18 @@ def collate_fn(batch):
     return images, padded, torch.tensor(lengths), img_names
 
 def get_transforms():
-    values = T.Compose([
+    train_transform = T.Compose([
+        T.Resize(256),
+        T.RandomCrop(224),
+        T.RandomHorizontalFlip(),
+        T.ToTensor(),
+        T.Normalize(
+            [0.485, 0.456, 0.406],
+            [0.229, 0.224, 0.225]
+        ),
+    ])
+
+    eval_transform = T.Compose([
         T.Resize(256),
         T.CenterCrop(224),
         T.ToTensor(),
@@ -142,7 +153,8 @@ def get_transforms():
             [0.229, 0.224, 0.225]
         ),
     ])
-    return values
+
+    return train_transform, eval_transform
 
 # loads captions, splits images, builds vocab from only training captions
 def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
@@ -155,11 +167,11 @@ def get_loaders(captions_file=CAPTIONS_FILE, image_dir=IMAGE_DIR):
             train_caps.append(cap)
     vocab = Vocabulary()
     vocab.build(train_caps)
-    transform = get_transforms()
+    train_transform, eval_transform = get_transforms()
 
-    train_ds = Flickr8kDataset(train_imgs, img_to_caps, vocab, image_dir, transform)
-    val_ds = Flickr8kDataset(val_imgs, img_to_caps, vocab, image_dir, transform)
-    test_ds = Flickr8kDataset(test_imgs, img_to_caps, vocab, image_dir, transform)
+    train_ds = Flickr8kDataset(train_imgs, img_to_caps, vocab, image_dir, train_transform)
+    val_ds = Flickr8kDataset(val_imgs, img_to_caps, vocab, image_dir, eval_transform)
+    test_ds = Flickr8kDataset(test_imgs, img_to_caps, vocab, image_dir, eval_transform)
 
     train_loader = DataLoader(
         train_ds,
