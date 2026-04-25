@@ -3,6 +3,7 @@ import json
 import os
 import torch
 from nltk.translate.bleu_score import corpus_bleu
+from nltk.translate.meteor_score import meteor_score
 from config import CHECKPOINT_DIR, DEVICE, START_IDX, END_IDX, PAD_IDX
 from data import get_loaders
 from model import EncoderCNN, DecoderLSTM
@@ -18,7 +19,10 @@ def load_model(path):
     decoder.eval()
     return encoder, decoder, vocab
 
-def run_eval(encoder, decoder, loader):
+def ids_to_words(ids, vocab):
+    return [vocab.idx2word.get(i, "<unk>") for i in ids]
+
+def run_eval(encoder, decoder, loader, vocab):
     dataset = loader.dataset
     img_to_refs= {}
     for img_name, encoded in dataset.samples:
@@ -61,21 +65,30 @@ def run_eval(encoder, decoder, loader):
     bleu3 = corpus_bleu(references, hypotheses, weights=(1/3, 1/3, 1/3, 0))
     bleu4 = corpus_bleu(references, hypotheses, weights=(0.25, 0.25, 0.25, 0.25))
 
-    return bleu1, bleu2, bleu3, bleu4, hypotheses, references, img_names
+    meteor_scores = []
+    for refs, hyp in zip(references, hypotheses):
+        refs_words = [ids_to_words(ref, vocab) for ref in refs]
+        hyp_words = ids_to_words(hyp, vocab)
+        meteor_scores.append(meteor_score(refs_words, hyp_words))
+
+    meteor = sum(meteor_scores) / len(meteor_scores)
+
+    return bleu1, bleu2, bleu3, bleu4, meteor, hypotheses, references, img_names
 
 
 def main():
     train_loader, val_loader, test_loader, _ = get_loaders()
     encoder, decoder, vocab = load_model(os.path.join(CHECKPOINT_DIR, "best_model.pth"))
 
-    bleu1, bleu2, bleu3, bleu4, hypotheses, references, img_names = run_eval(
-        encoder, decoder, test_loader
+    bleu1, bleu2, bleu3, bleu4, meteor, hypotheses, references, img_names = run_eval(
+        encoder, decoder, test_loader, vocab
     )
 
     print("BLEU-1:", bleu1)
     print("BLEU-2:", bleu2)
     print("BLEU-3:", bleu3)
     print("BLEU-4:", bleu4)
+    print("METEOR:", meteor)
 
     print("\nSample predictions:")
     for i in range(min(10, len(hypotheses))):
