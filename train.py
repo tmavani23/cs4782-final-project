@@ -6,6 +6,7 @@ import torch
 import torch.nn as nn
 from torch.optim import RMSprop
 from nltk.translate.bleu_score import corpus_bleu
+from nltk.translate.meteor_score import meteor_score
 
 from config import (
     CHECKPOINT_DIR, DEVICE,
@@ -15,6 +16,8 @@ from config import (
 from data import get_loaders
 from model import EncoderCNN, DecoderLSTM
 
+def ids_to_words(ids, vocab):
+    return [vocab.idx2word.get(i, "<unk>") for i in ids]
 
 def pack(tensor, lengths):
     result = []
@@ -72,7 +75,7 @@ def train_epoch(encoder, decoder, loader, criterion, optimizer, epoch_num):
     return total_loss / total_words
 
 
-def evaluate_bleu(encoder, decoder, loader):
+def evaluate_metrics(encoder, decoder, loader, vocab):
     encoder.eval()
     decoder.eval()
     dataset = loader.dataset
@@ -128,7 +131,15 @@ def evaluate_bleu(encoder, decoder, loader):
     bleu3 = corpus_bleu(references, hypotheses, weights=(1/3, 1/3, 1/3, 0))
     bleu4 = corpus_bleu(references, hypotheses, weights=(0.25, 0.25, 0.25, 0.25))
 
-    return bleu1, bleu2, bleu3, bleu4
+    meteor_scores = []
+    for refs, hyp in zip(references, hypotheses):
+        refs_words = [ids_to_words(ref, vocab) for ref in refs]
+        hyp_words = ids_to_words(hyp, vocab)
+        meteor_scores.append(meteor_score(refs_words, hyp_words))
+
+    meteor = sum(meteor_scores) / len(meteor_scores)
+
+    return bleu1, bleu2, bleu3, bleu4, meteor
 
 
 def main():
@@ -159,7 +170,7 @@ def main():
         train_loss = train_epoch(encoder, decoder, train_loader, criterion, optimizer, epoch_num)
 
         print(f"[Epoch {epoch_num}] Training done. Starting validation...")
-        bleu1, bleu2, bleu3, bleu4 = evaluate_bleu(encoder, decoder, val_loader)
+        bleu1, bleu2, bleu3, bleu4, meteor = evaluate_metrics(encoder, decoder, val_loader, vocab)
 
         epoch_time = time.time() - epoch_start
 
@@ -169,6 +180,7 @@ def main():
         print(f"BLEU-2: {bleu2:.4f}")
         print(f"BLEU-3: {bleu3:.4f}")
         print(f"BLEU-4: {bleu4:.4f}")
+        print("METEOR:", meteor)
 
         history.append({
             "epoch": epoch_num,
@@ -177,6 +189,7 @@ def main():
             "bleu2": bleu2,
             "bleu3": bleu3,
             "bleu4": bleu4,
+            "meteor": meteor,
             "epoch_time_sec": epoch_time,
         })
 
